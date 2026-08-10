@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>公司股价综合计算器 | 相对估值·CAPM·DDM·FCFF</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Microsoft YaHei","PingFang SC",sans-serif;background:#f0f2f5;color:#333;line-height:1.6}
+.container{max-width:1200px;margin:0 auto;padding:20px}
+.header{background:linear-gradient(135deg,#1e3a8a 0%,#1e40af 100%);color:#fff;padding:24px 32px;border-radius:12px;margin-bottom:20px;box-shadow:0 4px 20px rgba(30,58,138,.15)}
+.header h1{font-size:26px;margin-bottom:6px}
+.header p{font-size:13px;opacity:.88}
+.disclaimer{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:16px 20px;border-radius:10px;margin-bottom:20px;font-size:13px;line-height:1.8}
+.disclaimer strong{color:#b91c1c}
+.tabs{display:flex;gap:4px;background:#e5e7eb;padding:6px;border-radius:10px;margin-bottom:20px;flex-wrap:wrap}
+.tab{flex:1;min-width:140px;padding:12px 16px;text-align:center;cursor:pointer;border-radius:8px;font-weight:600;font-size:14px;color:#4b5563;transition:all .2s}
+.tab.active{background:#fff;color:#1e40af;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.panel{display:none;background:#fff;border-radius:12px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.05)}
+.panel.active{display:block}
+.section{margin-bottom:28px;padding-bottom:24px;border-bottom:1px dashed #e5e7eb}
+.section:last-child{border-bottom:0}
+.section-title{font-size:17px;font-weight:700;color:#1e3a8a;margin-bottom:14px;padding-left:12px;border-left:4px solid #3b82f6}
+.formula-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 18px;margin:12px 0;font-size:13px;line-height:1.9}
+.formula-box .f{font-family:"Cambria Math","Times New Roman",serif;font-size:15px;color:#1e3a8a;font-weight:600;margin:4px 0}
+.formula-box .sym{color:#374151;font-size:12px}
+.formula-box .sym b{color:#1e40af}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:12.5px;color:#4b5563;font-weight:500}
+.field input,.field select{padding:9px 12px;border:1px solid #d1d5db;border-radius:7px;font-size:13.5px;font-family:inherit;transition:border .2s}
+.field input:focus,.field select:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+.field .hint{font-size:11px;color:#9ca3af;margin-top:2px}
+.btn{background:linear-gradient(135deg,#2563eb,#1e40af);color:#fff;border:none;padding:11px 28px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;margin:8px 6px 0 0;transition:all .2s;font-family:inherit}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(30,64,175,.3)}
+.btn.sec{background:#64748b}
+.btn.sec:hover{background:#475569}
+.result{margin-top:18px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:10px;padding:18px 22px}
+.result h3{font-size:15px;color:#1e3a8a;margin-bottom:10px}
+.price-big{font-size:32px;font-weight:800;color:#1e40af;margin:8px 0}
+.price-big small{font-size:14px;color:#475569;font-weight:500;margin-left:8px}
+.result-row{display:flex;justify-content:space-between;padding:5px 0;font-size:13.5px;border-bottom:1px dotted #bfdbfe}
+.result-row:last-child{border-bottom:0}
+.result-row span:last-child{font-weight:600;color:#1e3a8a;font-family:"Cambria",serif}
+.scope{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;margin-top:14px;font-size:12.5px;line-height:1.8}
+.scope b{color:#92400e}
+.tag{display:inline-block;background:#dbeafe;color:#1e40af;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;margin-right:6px}
+.irate{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:10px}
+.irate input{padding:7px 10px;font-size:13px;border:1px solid #e5e7eb;border-radius:6px}
+.var-growth{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:10px}
+.subcalc{background:#f1f5f9;border-radius:8px;padding:12px 16px;margin:10px 0;font-size:13px}
+.subcalc b{color:#0f766e}
+.footer{text-align:center;padding:24px;color:#9ca3af;font-size:12px;margin-top:20px}
+.risk{color:#dc2626;font-weight:700}
+.good{color:#059669;font-weight:700}
+@media(max-width:768px){.container{padding:12px}.panel{padding:18px}.header{padding:18px}.header h1{font-size:20px}.tab{min-width:48%;padding:10px 8px;font-size:12.5px}.price-big{font-size:26px}}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+<h1>🏢 公司股价综合计算器</h1>
+<p>相对估值（P/E·P/B·P/S）｜ CAPM / WACC ｜ DDM 三模式 ｜ FCFF 自由现金流折现</p>
+</div>
+
+<div class="disclaimer">
+<strong>⚠️ 免责声明：</strong>本计算器<strong>仅供学业作业、论文写作、学术研究</strong>使用，据此投资，盈亏自负。<br>
+<strong>🔒 隐私声明（依据《个人信息保护法》）：</strong>本计算器<strong>所有数据概不上传服务器</strong>，计算过程全部在您本地浏览器完成，关闭浏览器即清零全部数据。<br>
+<strong>✅ 离线验证方法：</strong>按 <kbd>Ctrl+S</kbd>（Mac：<kbd>⌘+S</kbd>）将本页面另存为本地文件后，<strong>断网状态下双击即可独立运行</strong>，功能完整无缺。
+</div>
+
+<div class="tabs">
+<div class="tab active" onclick="showTab(0)">📊 相对估值</div>
+<div class="tab" onclick="showTab(1)">📈 CAPM / WACC</div>
+<div class="tab" onclick="showTab(2)">💵 DDM 股利折现</div>
+<div class="tab" onclick="showTab(3)">💰 FCFF 折现模型</div>
+</div>
+
+<!-- ========== 第1面板：相对估值 ========== -->
+<div class="panel active" id="p0">
+
+<!-- P/E -->
+<div class="section">
+<div class="section-title">一、市盈率估值法（P/E）</div>
+<div class="grid">
+<div class="field"><label>个股每股收益 EPS（元）</label><input type="number" step="any" id="pe_eps" placeholder="例：1.25"></div>
+<div class="field"><label>个股当前 P/E 倍数（可选）</label><input type="number" step="any" id="pe_cur" placeholder="例：25"></div>
+<div class="field"><label>所处行业平均 P/E 倍数</label><input type="number" step="any" id="pe_ind" placeholder="例：20"></div>
+</div>
+<button class="btn" onclick="calcPE()">计算 P/E 估值</button>
+<div class="result" id="pe_res" style="display:none"></div>
+<div class="scope">
+<b>📌 适用范围：</b>
+<span class="tag">盈利稳定公司</span><span class="tag">成熟行业</span><span class="tag">银行/消费/医药</span><br>
+① 适用于<strong>持续盈利且盈利波动较小</strong>的公司，亏损公司 EPS 为负无法使用；② 周期性行业盈利波动大，P/E 易失真；③ 高增长初创公司不适用。<br>
+<b>⚠️ 注意：</b>行业平均 P/E 应取同行业、同规模可比公司均值，剔除亏损/异常样本；重资产行业宜结合 P/B 使用。
+</div>
+</div>
+
+<!-- P/B -->
+<div class="section">
+<div class="section-title">二、市净率估值法（P/B）</div>
+<div class="grid">
+<div class="field"><label>个股每股净资产 BPS（元）</label><input type="number" step="any" id="pb_bps" placeholder="例：8.50"></div>
+<div class="field"><label>个股当前 P/B 倍数（可选）</label><input type="number" step="any" id="pb_cur" placeholder="例：1.8"></div>
+<div class="field"><label>所处行业平均 P/B 倍数</label><input type="number" step="any" id="pb_ind" placeholder="例：1.5"></div>
+</div>
+<button class="btn" onclick="calcPB()">计算 P/B 估值</button>
+<div class="result" id="pb_res" style="display:none"></div>
+<div class="scope">
+<b>📌 适用范围：</b>
+<span class="tag">重资产行业</span><span class="tag">银行/地产/钢铁</span><span class="tag">扭亏企业</span><br>
+① 适用于<strong>资产密集型</strong>行业（银行、地产、钢铁、煤炭、化工），资产负债表中固定资产占比高；② 盈利为负但净资产为正的<strong>周期性低谷公司</strong>、ST 扭亏股可勉强使用；③ 金融企业（银行/保险/券商）最为匹配，监管要求其净资产需满足资本充足率。<br>
+<b>⚠️ 注意：</b>轻资产行业（互联网、咨询、软件）净资产极少，P/B 严重失真；商誉过高的公司应使用剔除商誉后的净资产。
+</div>
+</div>
+
+<!-- P/S -->
+<div class="section">
+<div class="section-title">三、市销率估值法（P/S）</div>
+<div class="grid">
+<div class="field"><label>个股每股营业收入 SPS（元）</label><input type="number" step="any" id="ps_sps" placeholder="例：15.00"></div>
+<div class="field"><label>个股当前 P/S 倍数（可选）</label><input type="number" step="any" id="ps_cur" placeholder="例：3.2"></div>
+<div class="field"><label>所处行业平均 P/S 倍数</label><input type="number" step="any" id="ps_ind" placeholder="例：2.8"></div>
+</div>
+<button class="btn" onclick="calcPS()">计算 P/S 估值</button>
+<div class="result" id="ps_res" style="display:none"></div>
+<div class="scope">
+<b>📌 适用范围：</b>
+<span class="tag">尚未盈利</span><span class="tag">高成长科技</span><span class="tag">电商/SAAS</span><br>
+① 适用于<strong>营业收入稳定但尚未盈利</strong>的高成长公司（科创版、创业板、Pre-IPO 互联网），P/E 无法使用时的替代方案；② 电商、SaaS、云计算等"先抢市占率、后释放利润"的行业尤为匹配；③ 营收操纵难度高于利润，数据可信度较好。<br>
+<b>⚠️ 注意：</b>P/S 无法反映<strong>利润率差异</strong>，同样 10 亿营收，10% 净利润率和 1% 净利润率的公司估值差一个数量级，使用时必须对比同行业净利率水平。
+</div>
+</div>
+
+</div>
+
+<!-- ========== 第2面板：CAPM / WACC ========== -->
+<div class="panel" id="p1">
+
+<div class="section">
+<div class="section-title">一、市场平均收益率计算（沪深300 过去3年）</div>
+<div class="field" style="margin-bottom:8px"><label>请输入沪深300指数过去3年各年度收益率（%），每年一个框</label></div>
+<div class="irate" id="hs300_rates"></div>
+<button class="btn sec" style="margin-top:10px" onclick="addHS300()">＋ 增加一年</button>
+<button class="btn sec" onclick="calcMRP()">计算平均收益率</button>
+<div class="subcalc" id="mrp_sub" style="display:none"></div>
+</div>
+
+<div class="section">
+<div class="section-title">二、CAPM 模型计算股本成本</div>
+<div class="formula-box">
+<strong>📘 公式：</strong>
+<div class="f">Kₑ = Rբ + β × (E(Rₘ) − Rբ)</div>
+<div class="sym">
+<b>Kₑ</b> = 股本成本（必要报酬率）　<b>Rբ</b> = 无风险利率（10年期国债收益率）<br>
+<b>β</b> = 个股系统性风险系数　<b>E(Rₘ)</b> = 市场组合期望收益率（沪深300均值）<br>
+<b>E(Rₘ) − Rբ</b> = 市场风险溢价（MRP）
+</div>
+</div>
+<div class="grid">
+<div class="field"><label>10年期国债收益率 Rբ（%）<div class="hint">作为无风险利率，查最新国债到期收益率</div></label><input type="number" step="any" id="capm_rf" placeholder="约 2.0 ~ 2.5"></div>
+<div class="field"><label>个股 β 系数<div class="hint">Wind/同花顺/iFinD 可查</div></label><input type="number" step="any" id="capm_beta" placeholder="例：1.2"></div>
+<div class="field"><label>市场期望收益率 E(Rₘ)（%）<div class="hint">上方计算结果自动填入，也可手动修改</div></label><input type="number" step="any" id="capm_rm" placeholder="约 8.0 ~ 10.0"></div>
+</div>
+<button class="btn" onclick="calcCAPM()">运行 CAPM 计算</button>
+<div class="result" id="capm_res" style="display:none"></div>
+<div class="scope">
+<b>📌 输出用途：</b>① 作为<strong>投资组合业绩评价</strong>的基准（Jensen α、Treynor Ratio 计算）；② 作为 WACC 中<strong>股权成本</strong>的计算依据；③ 项目投资决策中风险调整折现率输入。
+</div>
+</div>
+
+<div class="section">
+<div class="section-title">三、WACC 加权平均资本成本</div>
+<div class="formula-box">
+<strong>📘 公式：</strong>
+<div class="f">WACC = Kₑ × E / (E+D) + K𝒹 × (1−T) × D / (E+D)</div>
+<div class="sym">
+<b>E</b> = 股权市值（股价×总股本）　<b>D</b> = 有息负债总额（债务市值）<br>
+<b>T</b> = 企业所得税税率　<b>Kₑ</b> = 股本成本（来自 CAPM）　<b>K𝒹</b> = 税前债务成本
+</div>
+</div>
+<div class="grid">
+<div class="field"><label>企业所得税税率 T（%）<div class="hint">一般25%，高新技术15%</div></label><input type="number" step="any" id="wacc_t" value="25"></div>
+<div class="field"><label>总股本（万股）</label><input type="number" step="any" id="wacc_shares" placeholder="例：100000"></div>
+<div class="field"><label>当前股价（元）<div class="hint">用于计算股权市值 E</div></label><input type="number" step="any" id="wacc_price" placeholder="例：25.50"></div>
+<div class="field"><label>（可选）目标资产负债率（%）<div class="hint">不填则用实际 E/D 计算</div></label><input type="number" step="any" id="wacc_dratio" placeholder="例：40"></div>
+</div>
+<button class="btn" onclick="calcWACC()">计算 WACC</button>
+<div class="result" id="wacc_res" style="display:none"></div>
+<div class="scope">
+<b>📌 输出用途：</b>WACC 是<strong>FCFF 折现模型的核心折现率</strong>，也用于 DCF 估值、EVA 计算、投资项目 NPV 折现。数据自动同步给下一模块的 FCFF 折现使用。
+</div>
+</div>
+
+</div>
+
+<!-- ========== 第3面板：DDM ========== -->
+<div class="panel" id="p2">
+
+<div class="section">
+<div class="section-title">一、模型选择与基础参数</div>
+<div class="grid">
+<div class="field">
+<label>DDM 增长模式</label>
+<select id="ddm_type" onchange="switchDDM()">
+<option value="zero">零增长模型（Zero Growth）</option>
+<option value="const" selected>不变增长模型（Constant Growth / Gordon）</option>
+<option value="multi">可变（多阶段）增长模型</option>
+</select>
+</div>
+<div class="field"><label>最近一期已派发股利 D₀（元/股）</label><input type="number" step="any" id="ddm_d0" placeholder="例：1.00"></div>
+<div class="field"><label>折现率 r（必要报酬率 %）<div class="hint">建议使用 CAPM 算出的 Kₑ</div></label><input type="number" step="any" id="ddm_r" placeholder="例：10.0"></div>
+<div class="field" id="f_const_g"><label>不变股息增长率 g（%）<div class="hint">不变增长模式专用</div></label><input type="number" step="any" id="ddm_g" placeholder="例：5.0"></div>
+<div class="field" id="f_const_y"><label>不变增长持续年数 N<div class="hint">通常 3~10 年，终端按永续</div></label><input type="number" step="any" id="ddm_n" value="5"></div>
+<div class="field" id="f_var_t"><label>多阶段高速增长年数<div class="hint">可变增长模式专用</div></label><input type="number" id="ddm_t" value="3" onchange="renderVarRows()"></div>
+</div>
+<div id="var_rows" style="display:none">
+<label style="font-size:13px;color:#4b5563;font-weight:600">各年度高速增长率（%）：</label>
+<div class="var-growth" id="var_grow"></div>
+<div class="grid" style="margin-top:10px">
+<div class="field"><label>稳定期永续增长率 g（%）<div class="hint">高速增长后进入稳定阶段</div></label><input type="number" step="any" id="ddm_g2" placeholder="例：3.0"></div>
+</div>
+</div>
+</div>
+
+<div class="section">
+<div class="section-title">二、DDM 股价估值计算</div>
+<div class="formula-box">
+<strong>📘 三种模式核心公式：</strong>
+<div class="f">零增长：P₀ = D / r　｜　不变增长（Gordon）：P₀ = D₁ / (r − g) = D₀·(1+g) / (r − g)</div>
+<div class="f">多阶段可变增长：P₀ = ΣDₜ/(1+r)ᵗ + Pₙ/(1+r)ⁿ ，其中 Pₙ = Dₙ₊₁ / (r − g稳态)</div>
+<div class="sym"><b>NPV</b> = 股价估值 − 当前买入价 （NPV > 0 值得投资）；<b>IRR</b> = 令 NPV = 0 时的内部收益率（IRR > 必要报酬率 则低估）</div>
+</div>
+<div class="grid">
+<div class="field"><label>当前股价（元）<div class="hint">用于计算 NPV 和判断高估/低估</div></label><input type="number" step="any" id="ddm_price" placeholder="例：20.00"></div>
+</div>
+<button class="btn" onclick="calcDDM()">运行 DDM 估值</button>
+<div class="result" id="ddm_res" style="display:none"></div>
+<div class="scope">
+<b>📌 适用范围：</b>
+<b>零增长</b>：<span class="tag">优先股</span>稳定派息公用事业（水电燃气）｜<b>不变增长（Gordon）</b>：<span class="tag">银行</span><span class="tag">消费白马</span><span class="tag">电力</span>｜<b>多阶段可变增长</b>：<span class="tag">高成长后趋于成熟</span><br>
+<b>⚠️ 共同前提：</b>公司必须有<strong>稳定派息历史</strong>和清晰的分红政策；不派息、或盈余不分红搞扩张的公司（如大多数成长股、科创股）DDM 严重失效，应使用 FCFF 模型。
+</div>
+</div>
+
+</div>
+
+<!-- ========== 第4面板：FCFF ========== -->
+<div class="panel" id="p3">
+
+<div class="section">
+<div class="section-title">一、WACC 折现率确认（数据自动同步第2面板）</div>
+<div class="subcalc">
+<b>当前 WACC：</b><span id="fcff_wacc_show" style="color:#dc2626;font-weight:700">请先在第2面板完成 WACC 计算，或手动填入下方折现率</span>
+</div>
+<div class="grid">
+<div class="field"><label>折现率 WACC（%）<div class="hint">建议同步第2面板，或手动覆盖</div></label><input type="number" step="any" id="fcff_wacc" placeholder="例：8.5"></div>
+<div class="field"><label>永续增长率 g（%）<div class="hint">FCFF 稳定阶段永续增长</div></label><input type="number" step="any" id="fcff_g" value="2.5"></div>
+<div class="field"><label>预测 FCFF 高速增长年数<div class="hint">后续按永续增长</div></label><input type="number" id="fcff_y" value="5"></div>
+<div class="field"><label>总股本（万股）<div class="hint">与第2面板同步（自动填充）</div></label><input type="number" step="any" id="fcff_shares"></div>
+<div class="field"><label>高速阶段 FCFF 复合增长率（%）<div class="hint">用于第2年起 FCFF 增长预测（可手动逐期覆盖）</div></label><input type="number" step="any" id="fcff_g1" placeholder="例：12"></div>
+</div>
+</div>
+
+<div class="section">
+<div class="section-title">二、有息负债与税前债务成本 K𝒹</div>
+<div class="grid">
+<div class="field"><label>短期借款（万元）<div class="hint">资产负债表"短期借款"</div></label><input type="number" step="any" id="kd_s" placeholder="例：5000"></div>
+<div class="field"><label>公司债券余额（万元）<div class="hint">"应付债券"+"一年内到期的应付债券"</div></label><input type="number" step="any" id="kd_b" placeholder="例：10000"></div>
+<div class="field"><label>长期借款（万元）<div class="hint">"长期借款"项</div></label><input type="number" step="any" id="kd_l" placeholder="例：15000"></div>
+<div class="field"><label>1年内到期的长期借款（万元）<div class="hint">流动负债项下"一年内到期的非流动负债"</div></label><input type="number" step="any" id="kd_1" placeholder="例：3000"></div>
+<div class="field"><label>财务费用（万元）<div class="hint">用于财务费用法计算 K𝒹。适用于报表<strong>不单独披露利息收入</strong>的情况（请知悉此方法为近似估算）</div></label><input type="number" step="any" id="kd_fe" placeholder="例：1200"></div>
+<div class="field"><label>利息支出（万元，优先）<div class="hint">若有填此项，<b>自动切换为利息支出法</b>计算 K𝒹（更准确）</div></label><input type="number" step="any" id="kd_ie" placeholder="例：1100"></div>
+</div>
+<button class="btn" onclick="calcKD()">计算债务成本 K𝒹 与有息负债总额</button>
+<div class="result" id="kd_res" style="display:none"></div>
+</div>
+
+<div class="section">
+<div class="section-title">三、EBIT 息税前利润计算</div>
+<div class="formula-box">
+<strong>📘 公式：</strong>
+<div class="f">EBIT = 营业收入 − 营业成本 − 研发费用 − 销售(营业)费用 − 管理费用</div>
+<div class="sym">说明：此为"简化自上而下法"，假设无其他经营损益；若财报有明确披露的 EBIT，以其为准。</div>
+</div>
+<div class="grid">
+<div class="field"><label>营业收入（万元）</label><input type="number" step="any" id="ebit_rev" placeholder="例：100000"></div>
+<div class="field"><label>营业成本（万元）</label><input type="number" step="any" id="ebit_cogs" placeholder="例：60000"></div>
+<div class="field"><label>研发费用（万元）</label><input type="number" step="any" id="ebit_rd" placeholder="例：5000"></div>
+<div class="field"><label>销售（营业）费用（万元）</label><input type="number" step="any" id="ebit_se" placeholder="例：8000"></div>
+<div class="field"><label>管理费用（万元）</label><input type="number" step="any" id="ebit_ga" placeholder="例：6000"></div>
+</div>
+<button class="btn" onclick="calcEBIT()">计算 EBIT</button>
+<div class="subcalc" id="ebit_sub" style="display:none"></div>
+</div>
+
+<div class="section">
+<div class="section-title">四、FCFF 自由现金流各项目填列</div>
+<div class="formula-box">
+<strong>📘 公式：</strong>
+<div class="f">FCFF = EBIT·(1−T) + 折旧摊销 − 净营运资本增加 − 资本性投资支出 + 其他调整项</div>
+</div>
+<div class="grid">
+<div class="field"><label>折旧与摊销（万元）<div class="hint">📌 <b>查阅位置：</b>现金流量表主表"投资活动现金流量"大类下的"固定资产折旧、油气资产折耗、生产性生物资产折旧" + "无形资产摊销" + "长期待摊费用摊销"三项合计；或间接法补充资料中同项</div></label><input type="number" step="any" id="fcff_da" placeholder="例：5000"></div>
+<div class="field"><label>流动资产总额（万元）<div class="hint">净营运资本 = 流动资产 − 流动负债</div></label><input type="number" step="any" id="fcff_ca" placeholder="例：80000"></div>
+<div class="field"><label>流动负债总额（万元）</label><input type="number" step="any" id="fcff_cl" placeholder="例：50000"></div>
+<div class="field"><label>资本性投资支出（万元）<div class="hint">📌 <b>精确到项查阅：</b>现金流量表"投资活动现金流出"——"购建固定资产、无形资产和其他长期资产支付的现金"</div></label><input type="number" step="any" id="fcff_capex" placeholder="例：12000"></div>
+<div class="field"><label>+ 其他调整项（万元，可填可留空）<div class="hint">📌 <b>填法说明：</b>资产减值准备（加回，非现金支出）、处置长期资产损益（负加正减）、递延所得税资产/负债变动、股权激励费用等非现金项。若无则填 0</div></label><input type="number" step="any" id="fcff_other" value="0"></div>
+<div class="field"><label>（可选）基期 FCFF 直接输入（万元）<div class="hint">若填此值，将跳过上面 EBIT 分项计算</div></label><input type="number" step="any" id="fcff_base" placeholder="留空则自动计算"></div>
+</div>
+<button class="btn" onclick="calcFCFF()">运行 FCFF 估值计算</button>
+<div class="result" id="fcff_res" style="display:none"></div>
+</div>
+
+</div>
+
+<div class="footer">
+📘 本计算器基于经典公司金融教材（罗斯《公司理财》、Damodaran《估值》、国资委《经济增加值考核》）理论编写。<br>
+数据 100% 本地处理 · 纯前端 HTML+CSS+JS · 零依赖 · Ctrl+S 后离线可用
+</div>
+
+</div>
+
+<script>
+// ========== 基础工具 ==========
+function $(id){return document.getElementById(id)}
+function fmt(n,d=2){if(isNaN(n)||!isFinite(n))return"—";return n.toLocaleString('zh-CN',{minimumFractionDigits:d,maximumFractionDigits:d})}
+function v(id){let x=parseFloat($(id).value);return isNaN(x)?0:x}
+function showTab(i){
+ document.querySelectorAll('.tab').forEach((t,idx)=>t.classList.toggle('active',idx===i));
+ document.querySelectorAll('.panel').forEach((p,idx)=>p.classList.toggle('active',idx===i));
+}
+
+// ========== 沪深300初始化 ==========
+let hsCount=3;
+function initHS300(){
+ let box=$('hs300_rates');box.innerHTML='';
+ for(let i=0;i<hsCount;i++){
+  let d=document.createElement('div');
+  d.className='field';
+  d.innerHTML=`<label>第${i+1}年收益率（%）</label><input type="number" step="any" class="hsr" placeholder="例：12.5">`;
+  box.appendChild(d);
+ }
+}
+function addHS300(){hsCount++;initHS300()}
+initHS300();
+
+// ========== 相对估值 ==========
+function calcPE(){
+ let eps=v('pe_eps'),cur=v('pe_cur'),ind=v('pe_ind');
+ if(eps<=0){alert('EPS 必须为正数，亏损公司 P/E 法不适用');return}
+ let res='<h3>P/E 估值结果</h3>';
+ if(ind>0){let p=eps*ind;res+=`<div class="price-big">¥ ${fmt(p)} <small>（行业 P/E 估值）</small></div>`;
+  res+=`<div class="result-row"><span>估值公式</span><span>EPS × 行业P/E = ${fmt(eps,4)} × ${fmt(ind,2)}</span></div>`;}
+ if(cur>0&&ind>0){let pct=(ind-cur)/cur*100;let tag=pct>0?`<span class="risk">低估 ${fmt(pct,2)}%</span>`:`<span class="good">高估 ${fmt(-pct,2)}%</span>`;
+  res+=`<div class="result-row"><span>相对行业估值判断</span><span>${tag}</span></div>`;}
+ if(cur>0){let p=eps*cur;res+=`<div class="result-row"><span>按当前P/E隐含股价</span><span>¥ ${fmt(p)}</span></div>`;}
+ $('pe_res').style.display='block';$('pe_res').innerHTML=res;
+}
+function calcPB(){
+ let bps=v('pb_bps'),cur=v('pb_cur'),ind=v('pb_ind');
+ if(bps<=0){alert('BPS 必须为正数');return}
+ let res='<h3>P/B 估值结果</h3>';
+ if(ind>0){let p=bps*ind;res+=`<div class="price-big">¥ ${fmt(p)} <small>（行业 P/B 估值）</small></div>`;
+  res+=`<div class="result-row"><span>估值公式</span><span>BPS × 行业P/B = ${fmt(bps,4)} × ${fmt(ind,2)}</span></div>`;}
+ if(cur>0&&ind>0){let pct=(ind-cur)/cur*100;let tag=pct>0?`<span class="risk">低估 ${fmt(pct,2)}%</span>`:`<span class="good">高估 ${fmt(-pct,2)}%</span>`;
+  res+=`<div class="result-row"><span>相对行业估值判断</span><span>${tag}</span></div>`;}
+ if(cur>0){let p=bps*cur;res+=`<div class="result-row"><span>按当前P/B隐含股价</span><span>¥ ${fmt(p)}</span></div>`;}
+ $('pb_res').style.display='block';$('pb_res').innerHTML=res;
+}
+function calcPS(){
+ let sps=v('ps_sps'),cur=v('ps_cur'),ind=v('ps_ind');
+ if(sps<=0){alert('SPS 必须为正数');return}
+ let res='<h3>P/S 估值结果</h3>';
+ if(ind>0){let p=sps*ind;res+=`<div class="price-big">¥ ${fmt(p)} <small>（行业 P/S 估值）</small></div>`;
+  res+=`<div class="result-row"><span>估值公式</span><span>SPS × 行业P/S = ${fmt(sps,4)} × ${fmt(ind,2)}</span></div>`;}
+ if(cur>0&&ind>0){let pct=(ind-cur)/cur*100;let tag=pct>0?`<span class="risk">低估 ${fmt(pct,2)}%</span>`:`<span class="good">高估 ${fmt(-pct,2)}%</span>`;
+  res+=`<div class="result-row"><span>相对行业估值判断</span><span>${tag}</span></div>`;}
+ if(cur>0){let p=sps*cur;res+=`<div class="result-row"><span>按当前P/S隐含股价</span><span>¥ ${fmt(p)}</span></div>`;}
+ $('ps_res').style.display='block';$('ps_res').innerHTML=res;
+}
+
+// ========== CAPM / WACC ==========
+window.WACC=0,window.KE=0,window.KD=0,window.DEBT=0,window.EQ=0;
+function calcMRP(){
+ let rs=document.querySelectorAll('.hsr');let arr=[],sum=0,cnt=0;
+ rs.forEach(r=>{let x=parseFloat(r.value);if(!isNaN(x)){arr.push(x);sum+=x;cnt++}});
+ if(cnt<1){alert('请至少填入一年的沪深300收益率');return}
+ let avg=sum/cnt;
+ $('capm_rm').value=fmt(avg,2);
+ let sb=$('mrp_sub');sb.style.display='block';
+ sb.innerHTML=`<b>年度收益率数据：</b>[ ${arr.map(x=>fmt(x,2)+'%').join('，')} ]　共 ${cnt} 年<br>
+ <b>算术平均收益率 E(Rₘ) =</b> <span class="risk">${fmt(avg,2)}%</span>（已自动填入上方 CAPM）`;
+}
+function calcCAPM(){
+ let rf=v('capm_rf'),beta=v('capm_beta'),rm=v('capm_rm');
+ if(!rf||!beta||!rm){alert('请完整填写 Rf、β、Rm 三项');return}
+ let mrp=rm-rf;let ke=rf+beta*mrp;
+ window.KE=ke;
+ let res=`<h3>CAPM 股本成本计算结果</h3>
+ <div class="price-big">Kₑ = ${fmt(ke,2)}% <small>（股本成本 / 股东必要报酬率）</small></div>
+ <div class="result-row"><span>无风险利率 Rբ</span><span>${fmt(rf,2)}%（10年期国债）</span></div>
+ <div class="result-row"><span>个股 β 系数</span><span>${fmt(beta,3)}</span></div>
+ <div class="result-row"><span>市场期望收益 E(Rₘ)</span><span>${fmt(rm,2)}%</span></div>
+ <div class="result-row"><span>市场风险溢价 MRP</span><span>${fmt(mrp,2)}%</span></div>
+ <div class="result-row"><span>计算过程</span><span>${fmt(rf,2)}% + ${fmt(beta,3)} × ${fmt(mrp,2)}% = ${fmt(ke,2)}%</span></div>
+ <div class="result-row"><span>Sharpe Ratio（β=1 市场组合）</span><span>${fmt(mrp/Math.sqrt(1),3)}（基准）</span></div>`;
+ $('capm_res').style.display='block';$('capm_res').innerHTML=res;
+}
+function calcWACC(){
+ let t=v('wacc_t')/100,sh=v('wacc_shares'),pr=v('wacc_price'),dr=v('wacc_dratio');
+ let kd=window.KD>0?window.KD:0;let debt=window.DEBT>0?window.DEBT:0;
+ if(!window.KE){alert('请先运行 CAPM 计算股本成本 Kₑ');return}
+ if(!sh||!pr){alert('请填写总股本和当前股价（或目标资产负债率），以计算 D/E 权重');return}
+ let eq=sh*pr;let dRatio, eRatio;
+ if(dr>0){dRatio=dr/100;eRatio=1-dRatio;debt=dRatio/(eRatio)*eq;}
+ else{if(!debt){alert('请先在第4面板计算有息负债，或填写目标资产负债率');return}dRatio=debt/(debt+eq);eRatio=eq/(debt+eq);}
+ if(kd===0){kd=4;alert('未计算债务成本 Kd，暂用 4% 默认值；建议先在 FCFF 面板完成债务成本计算')}
+ let wacc=eRatio*window.KE + dRatio*kd*(1-t);
+ window.WACC=wacc;window.EQ=eq;$('fcff_wacc').value=fmt(wacc,2);
+ $('fcff_shares').value=sh;
+ $('fcff_wacc_show').innerHTML=`<span class="good">${fmt(wacc,2)}%</span>（已同步至第4面板 FCFF 折现率）`;
+ let res=`<h3>WACC 计算结果</h3>
+ <div class="price-big">WACC = ${fmt(wacc,2)}% <small>（加权平均资本成本）</small></div>
+ <div class="result-row"><span>股本成本 Kₑ（CAPM）</span><span>${fmt(window.KE,2)}%</span></div>
+ <div class="result-row"><span>税前债务成本 K𝒹</span><span>${fmt(kd,2)}%</span></div>
+ <div class="result-row"><span>所得税税率 T</span><span>${fmt(t*100,2)}%</span></div>
+ <div class="result-row"><span>税后债务成本 K𝒹·(1−T)</span><span>${fmt(kd*(1-t),2)}%</span></div>
+ <div class="result-row"><span>股权市值 E</span><span>¥ ${fmt(eq,0)} 万元</span></div>
+ <div class="result-row"><span>有息负债 D</span><span>¥ ${fmt(debt,0)} 万元</span></div>
+ <div class="result-row"><span>股权权重 E/(E+D)</span><span>${fmt(eRatio*100,2)}%</span></div>
+ <div class="result-row"><span>负债权重 D/(E+D)</span><span>${fmt(dRatio*100,2)}%</span></div>
+ <div class="result-row"><span>WACC 计算过程</span><span>${fmt(eRatio*100,2)}% × ${fmt(window.KE,2)}% + ${fmt(dRatio*100,2)}% × ${fmt(kd*(1-t),2)}% = ${fmt(wacc,2)}%</span></div>`;
+ $('wacc_res').style.display='block';$('wacc_res').innerHTML=res;
+}
+
+// ========== DDM ==========
+function switchDDM(){
+ let t=$('ddm_type').value;
+ $('f_const_g').style.display=(t=='const')?'flex':'none';
+ $('f_const_y').style.display=(t=='const')?'flex':'none';
+ $('f_var_t').style.display=(t=='multi')?'flex':'none';
+ $('var_rows').style.display=(t=='multi')?'block':'none';
+ if(t=='multi')renderVarRows();
+}
+function renderVarRows(){
+ let n=parseInt($('ddm_t').value)||3;let box=$('var_grow');box.innerHTML='';
+ for(let i=0;i<n;i++){
+  let d=document.createElement('div');
+  d.className='field';
+  d.innerHTML=`<label>第${i+1}年增长率（%）</label><input type="number" step="any" class="vg" value="10">`;
+  box.appendChild(d);
+ }
+}
+switchDDM();
+function irrCF(cf,guess){//cf[0]=-price,cf[1..n]=dividends,cf[n+1]=terminal
+ let lo=-0.9,hi=2.0,r=guess||0.1;
+ for(let iter=0;iter<200;iter++){
+  let npv=0;for(let i=0;i<cf.length;i++)npv+=cf[i]/Math.pow(1+r,i);
+  let dnpv=0;for(let i=1;i<cf.length;i++)dnpv+=-i*cf[i]/Math.pow(1+r,i+1);
+  let step=npv/dnpv;r-=step;
+  if(r<-0.99)r=-0.9;if(r>2)r=1.5;
+  if(Math.abs(npv)<1e-8)break;
+ }
+ return r;
+}
+function calcDDM(){
+ let t=$('ddm_type').value;let d0=v('ddm_d0');let r=v('ddm_r')/100;let px=v('ddm_price');
+ if(!d0||!r){alert('请填写 D₀ 和折现率 r');return}
+ let npv0=0,irr0=0,val=0,out='';
+ let cf=[];
+ if(t==='zero'){
+  if(r<=0){alert('折现率必须大于0');return}
+  val=d0/r;
+  cf=[-px||0,d0];
+  out='<h3>DDM 零增长模型估值</h3>';
+  out+=`<div class="price-big">¥ ${fmt(val)} <small>（零增长理论股价）</small></div>`;
+  out+=`<div class="result-row"><span>公式：P₀ = D / r</span><span>${fmt(d0,4)} ÷ ${fmt(r*100,2)}%</span></div>`;
+ }else if(t==='const'){
+  let g=v('ddm_g')/100;let N=parseInt($('ddm_n').value)||5;
+  if(g>=r){alert('股息增长率 g 必须小于折现率 r（Gordon 模型稳定条件）');return}
+  // 前N年股利贴现+终值
+  let divSum=0;let Dn=d0;
+  for(let i=1;i<=N;i++){Dn*=(1+g);divSum+=Dn/Math.pow(1+r,i);if(cf)cf.push(Dn)}
+  let term=Dn*(1+g)/(r-g);
+  let termPV=term/Math.pow(1+r,N);
+  val=divSum+termPV;
+  cf=[-px||0];let D2=d0;
+  for(let i=1;i<=N;i++){D2*=(1+g);cf.push(D2)}
+  cf.push(D2*(1+g)/(r-g));// 终值
+  out='<h3>DDM 不变增长模型估值（Gordon）</h3>';
+  out+=`<div class="price-big">¥ ${fmt(val)} <small>（不变增长理论股价）</small></div>`;
+  out+=`<div class="result-row"><span>股利增长率 g</span><span>${fmt(g*100,2)}%，持续 ${N} 年 + 永续</span></div>`;
+  out+=`<div class="result-row"><span>前 ${N} 年股利现值和</span><span>¥ ${fmt(divSum)}</span></div>`;
+  out+=`<div class="result-row"><span>第 ${N} 年末终值 Pₙ</span><span>¥ ${fmt(term)}（折现后 ¥${fmt(termPV)}）</span></div>`;
+ }else{//multi
+  let T=parseInt($('ddm_t').value)||3;let g2=v('ddm_g2')/100;
+  let gs=document.querySelectorAll('.vg');let growArr=[];
+  gs.forEach(e=>{growArr.push((parseFloat(e.value)||0)/100)});
+  while(growArr.length<T)growArr.push(0.08);
+  if(g2>=r){alert('稳定期增长率 g 必须小于折现率 r');return}
+  let divSum=0;let Dn=d0;cf=[-px||0];
+  for(let i=1;i<=T;i++){Dn*=(1+growArr[i-1]);divSum+=Dn/Math.pow(1+r,i);cf.push(Dn)}
+  let term=Dn*(1+g2)/(r-g2);
+  let termPV=term/Math.pow(1+r,T);
+  val=divSum+termPV;cf.push(term);
+  out='<h3>DDM 多阶段可变增长估值</h3>';
+  out+=`<div class="price-big">¥ ${fmt(val)} <small>（可变增长理论股价）</small></div>`;
+  out+=`<div class="result-row"><span>高速阶段增长率</span><span>${growArr.map(x=>fmt(x*100,2)+'%').join(' → ')}</span></div>`;
+  out+=`<div class="result-row"><span>稳定期永续增长率</span><span>${fmt(g2*100,2)}%</span></div>`;
+  out+=`<div class="result-row"><span>高速期股利现值和</span><span>¥ ${fmt(divSum)}</span></div>`;
+  out+=`<div class="result-row"><span>第 ${T} 年末终值</span><span>¥ ${fmt(term)}（折现后 ¥${fmt(termPV)}）</span></div>`;
+ }
+ // NPV / IRR
+ if(px>0){
+  cf[0]=-px;
+  let npv=val-px;
+  out+=`<div class="result-row"><span>当前买入价</span><span>¥ ${fmt(px)}</span></div>`;
+  out+=`<div class="result-row"><span>NPV（净现值 = 估值 − 买入价）</span><span class="${npv>=0?'risk':'good'}">¥ ${fmt(npv)}（${npv>=0?'值得投资 ⭕':'不建议投资 ❌'}）</span></div>`;
+  let irr=irrCF(cf,r);
+  out+=`<div class="result-row"><span>IRR 内部收益率</span><span>${fmt(irr*100,2)}%（对比必要报酬率 ${fmt(r*100,2)}%）</span></div>`;
+  out+=`<div class="result-row"><span>IRR vs r 判断</span><span>${irr>=r?`<span class="risk">IRR ≥ r：股价低估，可买入</span>`:`<span class="good">IRR < r：股价高估，谨慎</span>`}</span></div>`;
+ }
+ $('ddm_res').style.display='block';$('ddm_res').innerHTML=out;
+}
+
+// ========== FCFF ==========
+function calcKD(){
+ let s=v('kd_s'),b=v('kd_b'),l=v('kd_l'),o=v('kd_1');
+ let fe=v('kd_fe'),ie=v('kd_ie');
+ let D=s+b+l+o;
+ if(D<=0){alert('请至少填写一项有息负债（短期/长期/债券/一年内到期）');return}
+ let method,kd;
+ if(ie>0){method='利息支出法（优先 · 更准确）';kd=ie/D*100;}
+ else if(fe>0){method='财务费用法（近似估算）⚠️';kd=fe/D*100;}
+ else{alert('请填写财务费用或利息支出，用于计算债务成本 Kd');return}
+ window.KD=kd;window.DEBT=D;
+ let res=`<h3>债务成本 K𝒹 与有息负债结果</h3>
+ <div class="price-big">K𝒹 = ${fmt(kd,2)}% <small>（税前债务成本）</small></div>
+ <div class="result-row"><span>计算方法</span><span>${method}</span></div>
+ <div class="result-row"><span>短期借款</span><span>¥ ${fmt(s,0)} 万</span></div>
+ <div class="result-row"><span>公司债券余额</span><span>¥ ${fmt(b,0)} 万</span></div>
+ <div class="result-row"><span>长期借款</span><span>¥ ${fmt(l,0)} 万</span></div>
+ <div class="result-row"><span>1年内到期的长期借款</span><span>¥ ${fmt(o,0)} 万</span></div>
+ <div class="result-row"><span>有息负债总额 D</span><span>¥ ${fmt(D,0)} 万元</span></div>
+ <div class="result-row"><span>利息/财务费用</span><span>¥ ${fmt(ie>0?ie:fe,0)} 万元</span></div>
+ <div class="result-row"><span>K𝒹 计算公式</span><span>${fmt(ie>0?ie:fe,0)} ÷ ${fmt(D,0)} × 100% = ${fmt(kd,2)}%</span></div>
+ <div style="margin-top:8px;font-size:12px;color:#78716c;background:#fef3c7;padding:8px 12px;border-radius:6px">
+ ⚠️ 说明：数据已自动共享给 WACC 计算；"财务费用法"因含汇兑损益/手续费等，为近似值；推荐优先使用"利息支出法"。
+ </div>`;
+ $('kd_res').style.display='block';$('kd_res').innerHTML=res;
+}
+function calcEBIT(){
+ let rev=v('ebit_rev'),cogs=v('ebit_cogs'),rd=v('ebit_rd'),se=v('ebit_se'),ga=v('ebit_ga');
+ let ebit=rev-cogs-rd-se-ga;
+ $('ebit_sub').style.display='block';
+ $('ebit_sub').innerHTML=`<b>EBIT = 营业收入 − 成本 − 研发 − 销售费用 − 管理费用</b><br>
+ = ${fmt(rev,0)} − ${fmt(cogs,0)} − ${fmt(rd,0)} − ${fmt(se,0)} − ${fmt(ga,0)}<br>
+ = <b style="font-size:18px;color:#1e40af">¥ ${fmt(ebit,0)} 万元</b>（已自动用于 FCFF 计算）
+ <input type="hidden" id="_ebit" value="${ebit}">`;
+}
+function calcFCFF(){
+ // EBIT
+ let ebit=parseFloat(document.getElementById('_ebit')?.value||0);
+ if(ebit===0)ebit=v('ebit_rev')-v('ebit_cogs')-v('ebit_rd')-v('ebit_se')-v('ebit_ga');
+ let base=v('fcff_base');
+ let t=v('wacc_t')/100;if(!t)t=0.25;
+ let wacc=v('fcff_wacc')/100;if(!wacc){alert('请先计算 WACC 或填写折现率');return}
+ let g=v('fcff_g')/100;if(g>=wacc){alert('永续增长率 g 必须小于 WACC');return}
+ let shares=v('fcff_shares');if(!shares){alert('请填写总股本数');return}
+ let Y=parseInt($('fcff_y').value)||5;let g1=v('fcff_g1')/100;
+ let da=v('fcff_da'),ca=v('fcff_ca'),cl=v('fcff_cl'),capex=v('fcff_capex'),oth=v('fcff_other');
+ let nwc=ca-cl;
+ let fcff0;
+ if(base>0){fcff0=base;}
+ else{fcff0=ebit*(1-t)+da-nwc-capex+oth;}
+ // 高速期FCFF预测
+ let arr=[fcff0];
+ for(let i=1;i<=Y;i++){arr.push(arr[i-1]*(1+g1))}
+ let pvSum=0;
+ for(let i=1;i<=Y;i++){pvSum+=arr[i]/Math.pow(1+wacc,i)}
+ let term=arr[Y]*(1+g)/(wacc-g);
+ let termPV=term/Math.pow(1+wacc,Y);
+ let firmVal=pvSum+termPV;
+ let netDebt=window.DEBT>0?window.DEBT:(v('kd_s')+v('kd_b')+v('kd_l')+v('kd_1'));
+ let eqVal=firmVal-netDebt;
+ let price=eqVal/shares;
+ // 当前股价对比
+ let curPx=v('wacc_price')||0;
+ let out=`<h3>FCFF 企业自由现金流估值结果</h3>
+ <div class="price-big">¥ ${fmt(Math.max(price,0))} <small>（每股合理股价）</small></div>
+ <div class="result-row"><span>基期 FCFF₀</span><span>¥ ${fmt(fcff0,0)} 万元${base>0?'（直接输入）':` = EBIT·(1-T)+折旧摊销−NWC−Capex+其他`}</span></div>`;
+ if(base<=0){out+=`<div class="result-row" style="padding-left:18px"><span>—— EBIT·(1−T)</span><span>${fmt(ebit,0)} × (1−${fmt(t*100,0)}%) = ${fmt(ebit*(1-t),0)}</span></div>
+ <div class="result-row" style="padding-left:18px"><span>—— + 折旧与摊销</span><span>+ ${fmt(da,0)}</span></div>
+ <div class="result-row" style="padding-left:18px"><span>—— − 净营运资本（流动−流动）</span><span>− ${fmt(nwc,0)} = ${fmt(ca,0)} − ${fmt(cl,0)}</span></div>
+ <div class="result-row" style="padding-left:18px"><span>—— − 资本性投资 Capex</span><span>− ${fmt(capex,0)}</span></div>
+ <div class="result-row" style="padding-left:18px"><span>—— + 其他调整项</span><span>+ ${fmt(oth,0)}</span></div>`;}
+ out+=`<div class="result-row"><span>高速增长复合增长率</span><span>${fmt(g1*100,2)}% / 共 ${Y} 年</span></div>
+ <div class="result-row"><span>高速期 FCFF 现值合计</span><span>¥ ${fmt(pvSum,0)} 万元</span></div>
+ <div class="result-row"><span>第 ${Y} 年末终值（永续）</span><span>¥ ${fmt(term,0)}（折现后 ¥ ${fmt(termPV,0)}）</span></div>
+ <div class="result-row"><span>企业整体价值 EV</span><span>¥ ${fmt(firmVal,0)} 万元</span></div>
+ <div class="result-row"><span>减：有息负债净债务</span><span>− ¥ ${fmt(netDebt,0)} 万元</span></div>
+ <div class="result-row"><span>股权价值 E</span><span>¥ ${fmt(eqVal,0)} 万元</span></div>
+ <div class="result-row"><span>总股本</span><span>${fmt(shares,0)} 万股</span></div>
+ <div class="result-row"><span>每股价值（估值股价）</span><span class="risk">¥ ${fmt(Math.max(price,0))}</span></div>`;
+ if(curPx>0){
+  let pct=(price-curPx)/curPx*100;let tag=pct>0?`低估 ${fmt(pct,2)}%（安全边际 ⭕）`:`高估 ${fmt(-pct,2)}%（谨慎 ❌）`;
+  out+=`<div class="result-row"><span>相对当前股价 ¥${fmt(curPx)} 判断</span><span class="${pct>0?'risk':'good'}">${tag}</span></div>`;
+ }
+ $('fcff_res').style.display='block';$('fcff_res').innerHTML=out;
+}
+</script>
+</body>
+</html>
